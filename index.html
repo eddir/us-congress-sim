@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Симулятор выборов в Палату представителей США 3 ноября 2026 года. Ответы собирают 435 округов и проверяют, есть ли 218 голосов за спикера." />
+    <title>Симулятор Палаты · 2026</title>
+    <script>
+      try {
+        var theme = localStorage.getItem('house-theme')
+        if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.documentElement.classList.add('dark')
+        var lang = localStorage.getItem('house-lang')
+        if (lang === 'en' || lang === 'ru') document.documentElement.lang = lang
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
