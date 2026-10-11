@@ -108,12 +108,29 @@ function presentIds(ids: string[], seats: Record<string, number>) {
   return ids.filter((id) => (seats[id] ?? 0) > 0)
 }
 
+function wingsOf(present: string[]) {
+  if (present.every((id) => demIds.includes(id))) {
+    return { institutional: 'dem', rebels: present.filter((id) => id !== 'dem') }
+  }
+  if (present.every((id) => gopIds.includes(id))) {
+    return { institutional: 'gop', rebels: present.filter((id) => id !== 'gop') }
+  }
+  return { institutional: null as string | null, rebels: present }
+}
+
 export function isFloorFight(ids: string[], seats: Record<string, number>) {
   const present = presentIds(ids, seats)
   const total = sumIds(seats, present)
   if (total < MAJORITY) return false
   const margin = total - MAJORITY
-  return present.filter((id) => (seats[id] ?? 0) > margin).length >= 2
+  const { institutional, rebels } = wingsOf(present)
+  const blocking = rebels.filter((id) => (seats[id] ?? 0) > margin)
+  if (blocking.length >= 2) return true
+  // У республиканцев один кокус свободы уже устраивает многотуровое голосование,
+  // если руководство само больше запаса и может провалить кандидата кокуса.
+  // Демократический левый фланг в такой же арифметике обычно голосует за своего номинанта:
+  // это рычаг, а не борьба, пока умеренные не могут провалить кандидата отдельно.
+  return institutional === 'gop' && blocking.includes('hfc') && (seats.gop ?? 0) > margin
 }
 
 export function speakerOf(ids: string[], seats: Record<string, number>): string | null {
@@ -410,7 +427,7 @@ function majorityText(
   if (wing) {
     return `${id === 'gop' ? 'Республиканцы' : 'Демократы'} получают ${total}. Запас над 218 всего ${margin}, а у «${wing}» ${wingSeats} мест. Этого хватает, чтобы провалить кандидата. Спикером становится ${speaker}, только если это крыло голосует за, а не сидит на руках.`
   }
-  return `${id === 'gop' ? 'Республиканцы' : 'Демократы'} получают ${total}. Запас над 218 составляет ${margin}, он больше любого одного крыла, поэтому фланг сам по себе организацию не срывает. В таком большинстве молоток получает ${speaker}.`
+  return `${id === 'gop' ? 'Республиканцы' : 'Демократы'} получают ${total}. Запас над 218 составляет ${margin}, он больше любого одного крыла, поэтому фланг сам по себе организацию не срывает. В таком большинстве спикером становится ${speaker}.`
 }
 
 function outlookTitle(en: boolean, id: string, speaker: string | null) {
@@ -426,15 +443,15 @@ function outlookTitle(en: boolean, id: string, speaker: string | null) {
 
 function outlookBody(en: boolean, id: string, speaker: string | null, wing: boolean) {
   if (en) {
-    if (speaker === 'hfc') return 'The agenda is tariffs, winding down Ukraine aid, and a Justice Department that answers to the White House. Moderate Republicans vote to organize, then can peel off on the first spending bill.'
-    if (speaker === 'prog') return 'The agenda is expanded coverage, a drug-price cap, and a vote on abortion rights. Mainstream Democrats supply the numbers. Moderates can still walk on a bill that will not survive their districts.'
+    if (speaker === 'hfc') return 'The agenda is tariffs, winding down Ukraine aid, and a Justice Department that answers to the White House. The caucus is large enough to pass that without the moderate Republicans.'
+    if (speaker === 'prog') return 'The agenda is expanded coverage, a drug-price cap, and a vote on abortion rights. The progressive wing is large enough to elect its own speaker without the moderates.'
     if (id === 'gop' && wing) return 'Leadership holds the gavel on loan from the Freedom Caucus. Closed rules pass only while that loan is current. A spending fight is where it gets called in.'
     if (id === 'dem' && wing) return 'Leadership holds the gavel on loan from the progressives. The left wing bargains the rules package: an open amendment, or a gavel on Judiciary. The budget lives until that bargain breaks.'
     if (id === 'gop') return 'The agenda is extending the tax cuts, a harder border, and letting the enhanced ACA subsidies lapse. The speaker writes closed rules.'
     return 'The agenda is keeping the ACA subsidies, a Medicare drug cap, and aid to Ukraine. The rules package is written by leadership, not by the flank.'
   }
-  if (speaker === 'hfc') return 'Повестка: пошлины, свёртывание помощи Украине и Минюст, который отвечает Белому дому. Умеренные республиканцы голосуют за организацию, а на первом бюджете могут отойти.'
-  if (speaker === 'prog') return 'Повестка: более широкая страховка, потолок цен на лекарства и голосование о праве на аборт. Числа даёт основное большинство. Умеренные всё ещё могут уйти с законопроекта, который не переживёт их округа.'
+  if (speaker === 'hfc') return 'Повестка: пошлины, свёртывание помощи Украине и Минюст, который отвечает Белому дому. Кокуса хватает, чтобы провести это без умеренных республиканцев.'
+  if (speaker === 'prog') return 'Повестка: более широкая страховка, потолок цен на лекарства и голосование о праве на аборт. Прогрессистов хватает, чтобы избрать своего спикера без умеренных.'
   if (id === 'gop' && wing) return 'Руководство держит молоток в долг у кокуса свободы. Закрытые правила проходят, пока долг не потребовали назад. Обычно его требуют на бюджете.'
   if (id === 'dem' && wing) return 'Руководство держит молоток в долг у прогрессистов. Левый фланг торгует пакет правил: открытая поправка или молоток юридического комитета. Бюджет жив, пока торг не сорвался.'
   if (id === 'gop') return 'Повестка: продление налоговых льгот, более жёсткая граница и истечение расширенных субсидий ACA. Спикер пишет закрытые правила.'
