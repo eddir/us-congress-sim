@@ -24,9 +24,9 @@ export function Compass({
   return (
     <div dir="ltr">
     <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-label={t.compassAria} className="w-full max-w-md">
-      <rect x={pad} y={pad} width={size - pad * 2} height={size - pad * 2} fill="var(--muted)" stroke="var(--border)" />
-      <line x1={size / 2} y1={pad} x2={size / 2} y2={size - pad} stroke="var(--border)" />
-      <line x1={pad} y1={size / 2} x2={size - pad} y2={size / 2} stroke="var(--border)" />
+      <rect x={pad} y={pad} width={size - pad * 2} height={size - pad * 2} fill="var(--sunk)" stroke="var(--line2)" />
+      <line x1={size / 2} y1={pad} x2={size / 2} y2={size - pad} stroke="var(--line2)" />
+      <line x1={pad} y1={size / 2} x2={size - pad} y2={size / 2} stroke="var(--line2)" />
       <text x={size / 2} y={16} textAnchor="middle" fill="currentColor" opacity={0.7} style={{ fontSize: 11 }}>
         {t.compassTop}
       </text>
@@ -40,7 +40,7 @@ export function Compass({
         {t.compassRight}
       </text>
       {dots.map((dot) => (
-        <circle key={dot.id} cx={dot.px} cy={dot.py} r={6.5} fill={dot.color} stroke="var(--card)" strokeWidth={1.5}>
+        <circle key={dot.id} cx={dot.px} cy={dot.py} r={6.5} fill={dot.color} stroke="var(--surface)" strokeWidth={1.5}>
           <title>{dot.name}</title>
         </circle>
       ))}
@@ -49,7 +49,7 @@ export function Compass({
           {label.text}
         </text>
       ))}
-      {you && <circle cx={you.px} cy={you.py} r={8} fill="var(--card)" stroke="currentColor" strokeWidth={3} />}
+      {you && <circle cx={you.px} cy={you.py} r={8} fill="var(--surface)" stroke="var(--ink)" strokeWidth={3} />}
       {labels.filter((label) => label.id === 'user').map((label) => (
         <text key={label.id} x={label.x} y={label.y} textAnchor={label.anchor} fill="currentColor" style={{ fontSize: 12, fontWeight: 700 }}>
           {label.text}

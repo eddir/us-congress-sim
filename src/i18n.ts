@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { parties, partyById, posts, questions, themes } from './data'
+import { bills, parties, partyById, posts, questions, themes } from './data'
 
 export type Locale = 'ru' | 'en'
 
@@ -126,6 +126,123 @@ const enQuestions: Record<string, QuestionBits> = {
     a: 'Allies are freeloaders. Pull back from NATO commitments',
     b: 'NATO and the Pacific alliances are worth the cost',
   },
+  wage: {
+    title: 'Minimum wage',
+    a: 'Leave the federal minimum where it is',
+    b: 'Raise it and index it to prices',
+  },
+  ceiling: {
+    title: 'The debt ceiling',
+    a: 'Hold the ceiling as leverage to cut spending',
+    b: 'Raise it on its own, with no threat of a Treasury default',
+  },
+  housing: {
+    title: 'Housing',
+    a: 'Lift local bans and leave building to the market',
+    b: 'Federal money for affordable and public housing',
+  },
+  leave: {
+    title: 'Paid leave',
+    a: 'Employers and states decide family leave',
+    b: 'A federal paid-leave program',
+  },
+  tuition: {
+    title: 'Student debt',
+    a: 'Borrowers repay. No mass cancellation',
+    b: 'Cancel a large share and expand grants',
+  },
+  snap: {
+    title: 'Food aid',
+    a: 'Tighter work rules and a smaller SNAP benefit',
+    b: 'Keep the benefit and raise it with food prices',
+  },
+  wall: {
+    title: 'The wall',
+    a: 'Finish the wall and expand detention',
+    b: 'Technology and ports of entry, not a longer wall',
+  },
+  asylum: {
+    title: 'Asylum',
+    a: 'Raise the bar and speed removals',
+    b: 'Keep the right to seek asylum and add judges',
+  },
+  dream: {
+    title: 'People brought as children',
+    a: 'End DACA and require them to leave',
+    b: 'A path to citizenship for people brought as children',
+  },
+  voting: {
+    title: 'Voting',
+    a: 'Strict ID and shorter early voting. States write the rules',
+    b: 'A federal floor: early voting, same-day registration, and the Voting Rights Act',
+  },
+  minors: {
+    title: 'Care for minors',
+    a: 'A federal ban on gender medical care for minors',
+    b: 'No federal ban: the doctor, the family, and the state decide',
+  },
+  religion: {
+    title: 'Religion and services',
+    a: 'A broad religious exemption from equal-treatment laws',
+    b: 'Equal-treatment law also covers businesses open to the public',
+  },
+  oversight: {
+    title: 'Oversight',
+    a: 'Oversight follows the president’s party and drops inconvenient cases',
+    b: 'Subpoenas and inspectors general do not depend on who is in the White House',
+  },
+  maps: {
+    title: 'District maps',
+    a: 'The majority party in the state draws the maps',
+    b: 'An independent commission draws the maps',
+  },
+  shutdown: {
+    title: 'A shutdown',
+    a: 'A shutdown is a valid way to force cuts',
+    b: 'The government stays open, and the budget is argued in regular order',
+  },
+  israel: {
+    title: 'Aid to Israel',
+    a: 'Military aid with no extra conditions',
+    b: 'Aid conditioned on civilian protection and a ceasefire track',
+  },
+  taiwan: {
+    title: 'Taiwan',
+    a: 'New arms packages and a clearer commitment to defend it',
+    b: 'No new package: keep strategic ambiguity',
+  },
+  defense: {
+    title: 'The Pentagon budget',
+    a: 'Real growth in the defense budget',
+    b: 'Cut it and spend the money at home',
+  },
+}
+
+const enBills: Record<string, { name: string; summary: string }> = {
+  'tax-cuts': {
+    name: 'Extend the rate cuts',
+    summary: 'Extend the current income-tax cuts and do not raise the rate on high incomes.',
+  },
+  aca: {
+    name: 'Keep the ACA subsidies',
+    summary: 'Keep the enhanced insurance subsidies and do not shrink Medicaid in this budget.',
+  },
+  deport: {
+    name: 'Fund mass deportations',
+    summary: 'Dedicated money for mass deportations and a closed asylum path.',
+  },
+  abortion: {
+    name: 'A federal right to abortion',
+    summary: 'A statute that writes a nationwide right to abortion and limits state bans.',
+  },
+  ukraine: {
+    name: 'Aid to Ukraine',
+    summary: 'A new military-aid package until there is a ceasefire that can be defended.',
+  },
+  ceiling: {
+    name: 'A clean debt-ceiling increase',
+    summary: 'Raise the debt ceiling with no attached cuts, so the Treasury does not reach a default.',
+  },
 }
 
 const enThemes: Record<string, ThemeBits> = {
@@ -218,6 +335,22 @@ export function postName(locale: Locale, id: string) {
   return source?.name ?? id
 }
 
+export function billText(locale: Locale, id: string) {
+  const source = bills.find((item) => item.id === id)
+  if (locale === 'en') return enBills[id] ?? { name: source?.name ?? id, summary: source?.summary ?? '' }
+  return { name: source?.name ?? id, summary: source?.summary ?? '' }
+}
+
+export function seatsWord(locale: Locale, n: number) {
+  if (locale === 'en') return Math.abs(n) === 1 ? 'seat' : 'seats'
+  const abs = Math.abs(n) % 100
+  const last = abs % 10
+  if (abs > 10 && abs < 20) return 'мест'
+  if (last === 1) return 'место'
+  if (last >= 2 && last <= 4) return 'места'
+  return 'мест'
+}
+
 type Ui = {
   pageTitle: string
   brandKicker: string
@@ -254,6 +387,61 @@ type Ui = {
   back: string
   skip: string
   keysHint: string
+  next: string
+  noOpinion: string
+  valEmpty: string
+  valMid: string
+  valNear: (side: string) => string
+  valClear: (side: string) => string
+  valFull: (side: string) => string
+  atStake: (n: number, word: string) => string
+  inSection: (current: number, total: number) => string
+  sectionOf: (current: number, total: number) => string
+  gives: string
+  nextSection: (name: string) => string
+  showHouse: string
+  majorityMark: (n: number) => string
+  boardByAnswers: string
+  boardNoAnswers: string
+  leadOut: (name: string) => string
+  leadTake: (name: string) => string
+  leadKeep: (name: string) => string
+  leadMajority: (name: string) => string
+  seatsLeft: (n: number, word: string) => string
+  pendingSeats: string
+  ofTotal: (n: number) => string
+  wikiTitle: string
+  wikiBy: string
+  wikiAll: (n: number, word: string) => string
+  wikiNeed: (n: number, word: string) => string
+  wikiVeto: (n: number) => string
+  wikiSystem: string
+  wikiCap: string
+  wikiLeader: string
+  wikiWing: string
+  wikiGot: string
+  wikiShare: string
+  wikiRest: string
+  themesTitle: string
+  themesLead: string
+  unanswered: string
+  billsTitle: string
+  billsLead: string
+  billYes: string
+  billNo: string
+  billAbs: string
+  billPass: string
+  billFail: string
+  perQuestion: (n: number) => string
+  nearestLabel: string
+  skippedMark: string
+  howSummary: string
+  reportTitle: string
+  systemLabel: string
+  wikiFaces: string
+  questionsTitle: string
+  needTheme: string
+  quizSize: (questions: number, sections: number) => string
   draft: string
   yourHouse: string
   fewAnswers: string
@@ -304,9 +492,10 @@ export const ui: Record<Locale, Ui> = {
     methodLead: 'Выборы 3 ноября 2026 года, 435 мест 120-го Конгресса. Модель повторяет правила Палаты, а не карту конкретного округа.',
     methodParas: [
       '435 одномандатных округов. В округе один победитель, относительное большинство. Голос за третью силу почти никогда не берёт округ: 19% Росса Перро в 1992 году не дали независимым ни одного места в Палате. Здесь независимые начинают получать округа только после 25% по стране, и то немного.',
-      'Места двух партий считаются от их доли в двупартийном голосовании. Один пункт по стране двигает примерно шесть мест (эластичность 1,35). Полмандатных пункта заложены в пользу республиканцев: так редакционно учтена география округов. Это не формула Бюро переписи.',
+      'Округа делятся между разделами по важности, методом наибольших остатков. Ответы раздела решают только его округа. Пропущенный вопрос из раздела выпадает. Если в разделе нет ни одного ответа, его округа делятся как при ровной стране.',
+      'Внутри раздела места двух партий считаются от их доли в двупартийном голосовании. Один пункт двигает места с эластичностью 1,35. Полмандатных пункта заложены в пользу республиканцев: так редакционно учтена география округов. Это не формула Бюро переписи.',
       'Внутри партии места делятся между крыльями. Безопасные округа сидят ближе к флангу, колеблющиеся чаще берут умеренных. Если вся страна отвечает как фланг, праймериз сдвигаются туда же.',
-      'Чтобы организовать палату, нужно 218 из 435. Спикера избирает палата, не партия. Крыло, которое больше запаса большинства, может провалить кандидата. Так в январе 2023 года Кевина Маккарти избирали с 15-й попытки.',
+      'Чтобы организовать палату, нужно 218 из 435. Спикера избирает палата, не партия. Крыло, которое больше запаса большинства, может провалить кандидата. Так в январе 2023 года Кевина Маккарти избирали с 15-й попытки. Для преодоления вето нужно 290, но президент в этом тесте не голосует.',
       'Ваши ответы не выбирают одного кандидата. Они собирают палату так, как если бы страна ответила так же. Цифры на первом экране: 238 у демократов и 197 у республиканцев, округление опубликованных прогнозов начала октября 2026 года. Делёж этих мест по крыльям редакционный. Прогнозы публикуют партию, не кокус.',
     ],
     close: 'Закрыть',
@@ -315,7 +504,7 @@ export const ui: Record<Locale, Ui> = {
     language: 'Язык',
     date: '3 ноября 2026',
     introTitle: 'Соберите Палату своими ответами',
-    introLead: 'Восемнадцать вопросов про пошлины, страховку, границу, суд и союзы. На выходе 435 округов и проверка, собирается ли 218 голосов за спикера. Сенат и президент здесь не считаются.',
+    introLead: 'Шесть разделов по шесть вопросов: цены, медицина, граница, права, власть и мир. После каждого раздела палата показывает промежуточный зал. В конце подробный отчёт: карточка итогов, голосования и каждый вопрос. Сенат и президент здесь не считаются.',
     seatsShort: 'мест',
     districtShort: 'победитель в округе',
     majorityShort: 'для спикера',
@@ -327,7 +516,7 @@ export const ui: Record<Locale, Ui> = {
     figcaption: 'Демократы слева, республиканцы справа. Умеренные сидят ближе к центру зала.',
     step: 'Шаг 1',
     weightsTitle: 'Что для вас решает выборы',
-    weightsLead: 'Тема с весом «не важно» не влияет на округа. По умолчанию все шесть одинаково важны.',
+    weightsLead: 'Чем важнее раздел, тем больше округов из 435 он раздаёт. Раздел с отметкой «Не важно» тест пропустит. По умолчанию все шесть делят места поровну.',
     weights: ['Не важно', 'Слабо', 'Важно', 'Решающе'],
     toQuestions: 'К вопросам',
     questionOf: (current, total) => `Вопрос ${current} из ${total}`,
@@ -337,7 +526,72 @@ export const ui: Record<Locale, Ui> = {
     choices: ['Первый', 'Скорее первый', 'Середина', 'Скорее второй', 'Второй'],
     back: 'Назад',
     skip: 'Пропустить',
-    keysHint: 'Клавиши 1-5, 0 пропуск, Backspace назад.',
+    keysHint: 'С клавиатуры: стрелки двигают ползунок, 1-5 ставят деления, Enter дальше, 0 без мнения.',
+    next: 'Дальше',
+    noOpinion: 'Без мнения',
+    valEmpty: 'Сдвиньте ползунок к варианту, который вам ближе',
+    valMid: 'Ровно посередине',
+    valNear: (side) => `Немного ближе к ${side}`,
+    valClear: (side) => `Заметно ближе к ${side}`,
+    valFull: (side) => `Полностью за ${side}`,
+    atStake: (n, word) => `${n} ${word} на кону`,
+    inSection: (current, total) => `Вопрос ${current} из ${total}`,
+    sectionOf: (current, total) => `Раздел ${current} из ${total}`,
+    gives: 'раздаёт',
+    nextSection: (name) => `Дальше: ${name}`,
+    showHouse: 'Показать мою Палату',
+    majorityMark: (n) => `Абсолютное большинство: ${n}`,
+    boardByAnswers: 'По вашим ответам в этом разделе',
+    boardNoAnswers: 'В этом разделе нет ответов: округа поделены как при ровной стране',
+    leadOut: (name) => `${name} выходит вперёд`,
+    leadTake: (name) => `${name} перехватывает лидерство`,
+    leadKeep: (name) => `${name} сохраняет лидерство`,
+    leadMajority: (name) => `${name}: абсолютное большинство`,
+    seatsLeft: (n, word) => `осталось ${n} ${word}`,
+    pendingSeats: 'Ещё не роздано',
+    ofTotal: (n) => `из ${n}`,
+    wikiTitle: 'Выборы в Палату представителей (2026)',
+    wikiBy: 'по ответам на тест',
+    wikiAll: (n, word) => `Все ${n} ${word} в Палате представителей`,
+    wikiNeed: (n, word) => `Для большинства необходимо ${n} ${word}`,
+    wikiVeto: (n) => `Для преодоления вето нужно ${n}`,
+    wikiSystem: 'Одномандатные округа, один победитель',
+    wikiCap: 'Распределение мест по итогам теста',
+    wikiLeader: 'Лицо крыла',
+    wikiWing: 'Крыло',
+    wikiGot: 'Мест получено',
+    wikiShare: 'Доля мест',
+    wikiRest: 'Остальные',
+    themesTitle: 'Места по разделам',
+    themesLead: 'Каждый раздел раздаёт свою долю округов. Поздние ответы не переписывают уже розданные.',
+    unanswered: 'без ответов',
+    billsTitle: 'Как проголосовала бы Палата',
+    billsLead: 'Шесть счетов по вашим же вопросам. Крыло голосует, если его позиция заметно по одну сторону. Счёт проходит, только если «за» набирает 218: это большинство всего состава, не только явившихся.',
+    billYes: 'За',
+    billNo: 'Против',
+    billAbs: 'Воздержались',
+    billPass: 'Проходит',
+    billFail: 'Не набирает 218',
+    perQuestion: (n) => `Вопрос за вопросом (${n})`,
+    nearestLabel: 'Ближе всего',
+    skippedMark: 'Без мнения',
+    howSummary: 'Как это считается',
+    reportTitle: 'Итоги выборов',
+    systemLabel: 'Система',
+    wikiFaces: 'Имена это лица крыла, не победители конкретных округов. Карточку удобно сохранить снимком экрана.',
+    questionsTitle: 'Каждый вопрос',
+    needTheme: 'Выберите хотя бы один раздел',
+    quizSize: (count, sections) => {
+      const word = (n: number, one: string, few: string, many: string) => {
+        const abs = Math.abs(n) % 100
+        const last = abs % 10
+        if (abs > 10 && abs < 20) return many
+        if (last === 1) return one
+        if (last >= 2 && last <= 4) return few
+        return many
+      }
+      return `${count} ${word(count, 'вопрос', 'вопроса', 'вопросов')} в ${sections} ${word(sections, 'разделе', 'разделах', 'разделах')}`
+    },
     draft: 'Черновик Палаты по уже данным ответам',
     yourHouse: 'Ваша Палата',
     fewAnswers: 'Ответов мало, поэтому расклад ближе к ровному дележу, чем к настоящей кампании.',
@@ -388,9 +642,10 @@ export const ui: Record<Locale, Ui> = {
     methodLead: 'The election is on 3 November 2026, for 435 seats in the 120th Congress. The model follows House rules. It is not a map of any one district.',
     methodParas: [
       '435 single-member districts. One winner per district, by plurality. A third-party vote almost never takes a seat: Ross Perot’s 19% in 1992 won independents nothing in the House. Here independents start winning districts only after 25% nationwide, and then only a few.',
-      'The two parties’ seats come from their share of the two-party vote. One national point moves about six seats (elasticity 1.35). Half a point is built in for Republicans, an editorial nod to district geography. It is not a Census Bureau formula.',
+      'Districts are split across sections by importance, by the largest-remainder method. A section’s answers decide only its districts. A skipped question drops out of its section. A section with no answers is split as an even country would split it.',
+      'Inside a section, the two parties’ seats come from their share of the two-party vote. One point moves seats with an elasticity of 1.35. Half a point is built in for Republicans, an editorial nod to district geography. It is not a Census Bureau formula.',
       'Inside a party, seats are split among wings. Safe districts sit toward the flank. Swing districts more often elect moderates. If the whole country answers like a flank, the primaries move that way too.',
-      'Organizing the House takes 218 of 435. The House elects the speaker, not the party. A wing larger than the majority’s cushion can vote the nominee down. That is how Kevin McCarthy was elected on the 15th ballot in January 2023.',
+      'Organizing the House takes 218 of 435. The House elects the speaker, not the party. A wing larger than the majority’s cushion can vote the nominee down. That is how Kevin McCarthy was elected on the 15th ballot in January 2023. Overriding a veto takes 290, but the president does not vote in this test.',
       'Your answers do not pick a single candidate. They build a House as if the country answered the same way. The first screen uses 238 Democratic seats and 197 Republican seats, a rounding of published forecasts from early October 2026. The split of those seats among wings is editorial. Forecasts publish a party, not a caucus.',
     ],
     close: 'Close',
@@ -399,7 +654,7 @@ export const ui: Record<Locale, Ui> = {
     language: 'Language',
     date: '3 November 2026',
     introTitle: 'Build the House with your answers',
-    introLead: 'Eighteen questions on tariffs, insurance, the border, the court, and alliances. You get 435 districts and a check on whether 218 votes for speaker come together. The Senate and the presidency are not in this model.',
+    introLead: 'Six sections of six questions: prices, health care, the border, rights, power, and the world. After each section the chamber shows a running total. At the end there is a full report: a results card, floor votes, and every question. The Senate and the presidency are not in this model.',
     seatsShort: 'seats',
     districtShort: 'winner per district',
     majorityShort: 'for speaker',
@@ -411,7 +666,7 @@ export const ui: Record<Locale, Ui> = {
     figcaption: 'Democrats on the left, Republicans on the right. Moderates sit closer to the center of the chamber.',
     step: 'Step 1',
     weightsTitle: 'What decides the election for you',
-    weightsLead: 'A theme set to “not important” does not move districts. By default all six weigh the same.',
+    weightsLead: 'The more a section matters, the more of the 435 districts it awards. A section marked “not important” is skipped. By default all six split the seats evenly.',
     weights: ['Not important', 'A little', 'Important', 'Decisive'],
     toQuestions: 'To the questions',
     questionOf: (current, total) => `Question ${current} of ${total}`,
@@ -421,7 +676,63 @@ export const ui: Record<Locale, Ui> = {
     choices: ['First', 'Leaning first', 'Middle', 'Leaning second', 'Second'],
     back: 'Back',
     skip: 'Skip',
-    keysHint: 'Keys 1-5, 0 to skip, Backspace to go back.',
+    keysHint: 'Keyboard: arrows move the slider, 1-5 set a stop, Enter continues, 0 is no opinion.',
+    next: 'Next',
+    noOpinion: 'No opinion',
+    valEmpty: 'Move the slider toward the option you prefer',
+    valMid: 'Right in the middle',
+    valNear: (side) => `A little closer to ${side}`,
+    valClear: (side) => `Clearly closer to ${side}`,
+    valFull: (side) => `Fully for ${side}`,
+    atStake: (n, word) => `${n} ${word} at stake`,
+    inSection: (current, total) => `Question ${current} of ${total}`,
+    sectionOf: (current, total) => `Section ${current} of ${total}`,
+    gives: 'awards',
+    nextSection: (name) => `Next: ${name}`,
+    showHouse: 'Show my House',
+    majorityMark: (n) => `Absolute majority: ${n}`,
+    boardByAnswers: 'From your answers in this section',
+    boardNoAnswers: 'This section has no answers: its districts are split as in an even country',
+    leadOut: (name) => `${name} moves ahead`,
+    leadTake: (name) => `${name} takes the lead`,
+    leadKeep: (name) => `${name} keeps the lead`,
+    leadMajority: (name) => `${name}: an absolute majority`,
+    seatsLeft: (n, word) => `${n} ${word} left`,
+    pendingSeats: 'Not yet awarded',
+    ofTotal: (n) => `of ${n}`,
+    wikiTitle: 'United States House of Representatives elections (2026)',
+    wikiBy: 'from your answers',
+    wikiAll: (n, word) => `All ${n} ${word} in the House of Representatives`,
+    wikiNeed: (n, word) => `${n} ${word} are required for a majority`,
+    wikiVeto: (n) => `${n} are required to override a veto`,
+    wikiSystem: 'Single-member districts, one winner',
+    wikiCap: 'Seats at the end of the test',
+    wikiLeader: 'Face of the wing',
+    wikiWing: 'Wing',
+    wikiGot: 'Seats won',
+    wikiShare: 'Share of seats',
+    wikiRest: 'The rest',
+    themesTitle: 'Seats by section',
+    themesLead: 'Each section awards its own districts. Later answers do not rewrite seats already given out.',
+    unanswered: 'no answers',
+    billsTitle: 'How the House would vote',
+    billsLead: 'Six bills drawn from the same questions. A wing votes when its position is clearly on one side. A bill passes only if the ayes reach 218: a majority of the whole House, not of those who voted.',
+    billYes: 'Aye',
+    billNo: 'No',
+    billAbs: 'Present',
+    billPass: 'Passes',
+    billFail: 'Short of 218',
+    perQuestion: (n) => `Question by question (${n})`,
+    nearestLabel: 'Closest',
+    skippedMark: 'No opinion',
+    howSummary: 'How this is counted',
+    reportTitle: 'Election results',
+    systemLabel: 'System',
+    wikiFaces: 'The names are faces of a wing, not the winners of particular districts. The card is easy to save as a screenshot.',
+    questionsTitle: 'Every question',
+    needTheme: 'Choose at least one section',
+    quizSize: (count, sections) =>
+      `${count} ${count === 1 ? 'question' : 'questions'} in ${sections} ${sections === 1 ? 'section' : 'sections'}`,
     draft: 'A draft House from the answers so far',
     yourHouse: 'Your House',
     fewAnswers: 'There are few answers, so the result is closer to an even split than to a real campaign.',

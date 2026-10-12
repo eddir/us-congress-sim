@@ -24,8 +24,8 @@ export function Hemicycle({
   }
 
   return (
-    <div dir="ltr">
-    <svg viewBox={`0 0 ${HEMICYCLE.width} ${HEMICYCLE.height}`} role="img" aria-label={`${label}, ${sub}`} className="w-full">
+    <div className="hemi" dir="ltr">
+    <svg viewBox={`0 0 ${HEMICYCLE.width} ${HEMICYCLE.height}`} role="img" aria-label={`${label}, ${sub}`}>
       {seatPoints.map((point, index) => {
         const seat = assigned[index] ?? { id: '', color: 'var(--muted)', name: '' }
         const dim = Boolean(activeId) && seat.id !== activeId
@@ -37,7 +37,7 @@ export function Hemicycle({
             r={SEAT_RADIUS}
             fill={seat.color}
             opacity={dim ? 0.22 : 1}
-            stroke="var(--card)"
+            stroke="var(--surface)"
             strokeWidth={1.2}
             className={onPick && seat.id ? 'cursor-pointer' : undefined}
             onClick={() => seat.id && onPick?.(seat.id)}
@@ -51,10 +51,7 @@ export function Hemicycle({
         y={HEMICYCLE.labelY}
         textAnchor="middle"
         dominantBaseline="central"
-        fill="currentColor"
-        className="font-heading"
-        fontSize={42}
-        fontWeight={650}
+        className="big"
       >
         {label}
       </text>
@@ -63,9 +60,7 @@ export function Hemicycle({
         y={HEMICYCLE.labelY + 28}
         textAnchor="middle"
         dominantBaseline="central"
-        fill="currentColor"
-        opacity={0.62}
-        fontSize={14}
+        className="sm"
       >
         {sub}
       </text>
