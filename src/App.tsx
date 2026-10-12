@@ -868,10 +868,22 @@ function Results({
   const shownId = activeId && parties.some((party) => party.id === activeId) ? activeId : closestId
   const ranked = parties.filter((party) => result.seats[party.id] > 0).slice().sort((a, b) => result.seats[b.id] - result.seats[a.id])
   const maxSeats = ranked[0] ? result.seats[ranked[0].id] : 1
+  const chamberRef = useRef<HTMLDivElement>(null)
   const focusBlock = result.blocks.find((block) => block.themeId === themeFocus && block.total > 0)
   const focusTheme = focusBlock ? themes.find((theme) => theme.id === focusBlock.themeId) : undefined
   const chartLabel = focusBlock ? String(focusBlock.total) : String(SEAT_COUNT)
   const chartSub = focusTheme ? themeText(locale, focusTheme.id).name : t.hemicycleSub
+  const focusId = focusBlock?.themeId ?? null
+  useEffect(() => {
+    if (!focusId) return
+    const node = chamberRef.current
+    if (!node || typeof node.scrollIntoView !== 'function') return
+    try {
+      node.scrollIntoView({ block: 'center', inline: 'nearest' })
+    } catch {
+      // jsdom не умеет прокрутку.
+    }
+  }, [focusId])
 
   return (
     <div className="res stack">
@@ -895,7 +907,7 @@ function Results({
         </p>
       </div>
 
-      <div className="box main">
+      <div className="box main" ref={chamberRef}>
         <Hemicycle
           groups={sectionGroups(result, locale)}
           activeId={activeId}
@@ -915,7 +927,10 @@ function Results({
                 type="button"
                 className="row"
                 aria-pressed={activeId === party.id}
-                onClick={() => onActive(activeId === party.id ? null : party.id)}
+                onClick={() => {
+                  setThemeFocus(null)
+                  onActive(activeId === party.id ? null : party.id)
+                }}
               >
                 <i className="dot" style={{ background: party.color }} />
                 <b>{partyName(locale, party.id)}</b>
