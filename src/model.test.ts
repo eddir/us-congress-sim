@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { demIds, gopIds, parties, questions, SEAT_COUNT, THIRD_PARTY_FLOOR } from './data'
+import { demIds, gopIds, parties, questions, SEAT_COUNT, themes, THIRD_PARTY_FLOOR } from './data'
 import { questionText, themeText } from './i18n'
 import {
   buildScenarios,
@@ -110,6 +110,32 @@ describe('палата 2026', () => {
   it('крыло ниже порога независимых не получает округов, если доля мала', () => {
     const result = simulate({})
     if (result.raw.ind + 1e-9 < THIRD_PARTY_FLOOR) expect(result.seats.ind).toBe(0)
+  })
+
+  it('в каждом разделе по шесть вопросов, а округа разделов складываются в палату', () => {
+    expect(questions).toHaveLength(themes.length * 6)
+    for (const theme of themes) {
+      expect(questions.filter((question) => question.theme === theme.id)).toHaveLength(6)
+    }
+    const result = simulate(fill(0.5))
+    expect(result.blocks.reduce((sum, block) => sum + block.total, 0)).toBe(SEAT_COUNT)
+    const seats: Record<string, number> = {}
+    for (const block of result.blocks) {
+      expect(Object.values(block.seats).reduce((sum, n) => sum + n, 0)).toBe(block.total)
+      for (const [id, count] of Object.entries(block.seats)) seats[id] = (seats[id] ?? 0) + count
+    }
+    expect(seats).toEqual(result.seats)
+  })
+
+  it('поздний раздел не переписывает округа раннего', () => {
+    const money = Object.fromEntries(questions.filter((question) => question.theme === 'money').map((question) => [question.id, 1]))
+    const later = {
+      ...money,
+      ...Object.fromEntries(questions.filter((question) => question.theme === 'world').map((question) => [question.id, -1])),
+    }
+    const early = simulate(money).blocks.find((block) => block.themeId === 'money')
+    const after = simulate(later).blocks.find((block) => block.themeId === 'money')
+    expect(after?.seats).toEqual(early?.seats)
   })
 })
 

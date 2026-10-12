@@ -40,9 +40,27 @@ export type Coalition = {
   pm: string
 }
 
+export type ThemeBlock = {
+  themeId: string
+  seats: Record<string, number>
+  total: number
+  raw: Record<string, number>
+}
+
+export type BillTally = {
+  yes: number
+  no: number
+  abs: number
+  yesIds: string[]
+  noIds: string[]
+  absIds: string[]
+  pass: boolean
+}
+
 export type SeatResult = {
   seats: Record<string, number>
   raw: Record<string, number>
+  blocks: ThemeBlock[]
   twoPartyDem: number
   closestId: string
   closeness: Record<string, number>
@@ -233,13 +251,16 @@ function blend(ids: string[], score: Record<string, number>, prior: number[]) {
   })
 }
 
-export function allocateSeats(score: Record<string, number>) {
+export function allocateSeats(score: Record<string, number>, total = SEAT_COUNT) {
+  const seats: Record<string, number> = Object.fromEntries(parties.map((party) => [party.id, 0]))
+  if (total <= 0) return seats
+  const scale = total / SEAT_COUNT
   const indShare = score.ind ?? 0
   let indSeats = 0
   if (indShare >= THIRD_PARTY_FLOOR) {
-    indSeats = Math.min(40, Math.round((indShare - THIRD_PARTY_FLOOR) * 36))
+    indSeats = Math.min(total, Math.round(40 * scale), Math.max(0, Math.round((indShare - THIRD_PARTY_FLOOR) * 36 * scale)))
   }
-  const rest = SEAT_COUNT - indSeats
+  const rest = total - indSeats
   const dVote = sumIds(score, demIds)
   const rVote = sumIds(score, gopIds)
   const denom = dVote + rVote
@@ -249,15 +270,99 @@ export function allocateSeats(score: Record<string, number>) {
   const rSeats = rest - dSeats
   const dSplit = hamilton(blend(demIds, score, [0.2, 0.62, 0.18]), dSeats)
   const rSplit = hamilton(blend(gopIds, score, [0.16, 0.52, 0.32]), rSeats)
-  const seats: Record<string, number> = { ind: indSeats }
+  seats.ind = indSeats
   demIds.forEach((id, index) => {
     seats[id] = dSplit[index]
   })
   gopIds.forEach((id, index) => {
     seats[id] = rSplit[index]
   })
-  const total = Object.values(seats).reduce((acc, seat) => acc + seat, 0)
-  if (total !== SEAT_COUNT) seats.gop = (seats.gop ?? 0) + (SEAT_COUNT - total)
+  const got = Object.values(seats).reduce((acc, seat) => acc + seat, 0)
+  if (got !== total) seats.gop = (seats.gop ?? 0) + (total - got)
+  return seats
+}
+
+export function seatPlan(weights: Weights) {
+  const plan = Object.fromEntries(themes.map((theme) => [theme.id, 0]))
+  const active = themes.filter((theme) => themeWeight(weights, theme.id) > 0)
+  if (!active.length) return plan
+  const counts = hamilton(
+    active.map((theme) => themeWeight(weights, theme.id)),
+    SEAT_COUNT,
+  )
+  active.forEach((theme, index) => {
+    plan[theme.id] = counts[index] ?? 0
+  })
+  return plan
+}
+
+function themeScore(themeId: string, answers: Answers) {
+  const score = Object.fromEntries(parties.map((party) => [party.id, 0]))
+  let count = 0
+  for (const question of questions) {
+    if (question.theme !== themeId) continue
+    const value = answers[question.id]
+    if (value == null) continue
+    count += 1
+    shares(question, value).forEach((share, index) => {
+      score[parties[index].id] += share
+    })
+  }
+  if (!count) {
+    for (const party of parties) score[party.id] = 1
+  }
+  return score
+}
+
+export function sectionBlocks(answers: Answers, weights: Weights): ThemeBlock[] {
+  const plan = seatPlan(weights)
+  const active = themes.filter((theme) => (plan[theme.id] ?? 0) > 0)
+  if (!active.length) {
+    const raw = Object.fromEntries(parties.map((party) => [party.id, 1 / parties.length]))
+    return [{ themeId: '_even', seats: allocateSeats(raw, SEAT_COUNT), total: SEAT_COUNT, raw }]
+  }
+  return active.map((theme) => {
+    const score = themeScore(theme.id, answers)
+    const totalScore = Object.values(score).reduce((sum, value) => sum + value, 0) || 1
+    const raw = Object.fromEntries(parties.map((party) => [party.id, score[party.id] / totalScore]))
+    const total = plan[theme.id] ?? 0
+    return { themeId: theme.id, raw, total, seats: allocateSeats(raw, total) }
+  })
+}
+
+export function tallyBill(questionId: string, yes: 1 | -1, seats: Record<string, number>): BillTally {
+  const question = questions.find((item) => item.id === questionId)
+  const yesIds: string[] = []
+  const noIds: string[] = []
+  const absIds: string[] = []
+  let yesSeats = 0
+  let noSeats = 0
+  let absSeats = 0
+  for (const party of parties) {
+    const count = seats[party.id] ?? 0
+    if (!count) continue
+    const lean = ((question?.stance[party.id] ?? 0) * yes)
+    if (lean >= 0.2) {
+      yesSeats += count
+      yesIds.push(party.id)
+    } else if (lean <= -0.2) {
+      noSeats += count
+      noIds.push(party.id)
+    } else {
+      absSeats += count
+      absIds.push(party.id)
+    }
+  }
+  return { yes: yesSeats, no: noSeats, abs: absSeats, yesIds, noIds, absIds, pass: yesSeats >= MAJORITY }
+}
+
+export function addSeats(blocks: ThemeBlock[], themeIds: string[]) {
+  const seats = Object.fromEntries(parties.map((party) => [party.id, 0]))
+  const allow = new Set(themeIds)
+  for (const block of blocks) {
+    if (!allow.has(block.themeId)) continue
+    for (const party of parties) seats[party.id] += block.seats[party.id] ?? 0
+  }
   return seats
 }
 
@@ -503,22 +608,15 @@ function buildLeadership(ids: string[], seats: Record<string, number>, speaker: 
 
 export function simulate(answers: Answers, weights: Weights = defaultWeights(), locale: Locale = 'ru'): SeatResult {
   const active = answered(questions, answers, weights)
-  const score = Object.fromEntries(parties.map((party) => [party.id, 0]))
-  for (const question of active) {
-    const value = answers[question.id]
-    if (value == null) continue
-    const weight = themeWeight(weights, question.theme)
-    shares(question, value).forEach((share, index) => {
-      score[parties[index].id] += share * weight
-    })
+  const blocks = sectionBlocks(answers, weights)
+  const seats = Object.fromEntries(parties.map((party) => [party.id, 0]))
+  for (const block of blocks) {
+    for (const party of parties) seats[party.id] += block.seats[party.id] ?? 0
   }
-  if (!active.length) {
-    for (const party of parties) score[party.id] = 1
-  }
-
-  const totalScore = Object.values(score).reduce((sum, value) => sum + value, 0) || 1
-  const raw = Object.fromEntries(parties.map((party) => [party.id, score[party.id] / totalScore]))
-  const seats = allocateSeats(raw)
+  const denom = blocks.reduce((sum, block) => sum + block.total, 0) || 1
+  const raw = Object.fromEntries(
+    parties.map((party) => [party.id, blocks.reduce((sum, block) => sum + block.raw[party.id] * block.total, 0) / denom]),
+  )
   const dVote = sumIds(raw, demIds)
   const rVote = sumIds(raw, gopIds)
   const twoPartyDem = dVote + rVote > 0 ? dVote / (dVote + rVote) : 0.5
@@ -551,6 +649,7 @@ export function simulate(answers: Answers, weights: Weights = defaultWeights(), 
   return {
     seats,
     raw,
+    blocks,
     twoPartyDem,
     closestId,
     closeness,

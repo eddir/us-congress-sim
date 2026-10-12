@@ -3,6 +3,23 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { act } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { questions, themes } from './data'
+
+async function answerMiddle() {
+  fireEvent.click(screen.getByRole('radio', { name: /Середина/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Дальше' }))
+}
+
+async function finishQuiz() {
+  const perTheme = questions.length / themes.length
+  for (let step = 0; step < questions.length; step += 1) {
+    await answerMiddle()
+    if ((step + 1) % perTheme !== 0) continue
+    expect(await screen.findByText(/раздаёт/)).toBeTruthy()
+    const last = step === questions.length - 1
+    fireEvent.click(screen.getByRole('button', { name: last ? 'Показать мою Палату' : /Дальше:/ }))
+  }
+}
 
 beforeEach(() => {
   cleanup()
@@ -29,17 +46,29 @@ describe('симулятор', () => {
   it('проходит путь от прогноза до Палаты', async () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Соберите Палату своими ответами' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Duma Simulator' }).getAttribute('href')).toBe('https://bolshoiprikol2.github.io/Duma-Simulator/ru/')
     fireEvent.click(screen.getByRole('button', { name: 'Сразу к вопросам' }))
-    for (let step = 0; step < 18; step += 1) {
-      const choice = await screen.findByRole('radio', { name: /Середина/ })
-      await act(async () => {
-        fireEvent.click(choice)
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      })
-    }
+    await finishQuiz()
     expect(await screen.findByText('Ваша Палата')).toBeTruthy()
     expect(screen.getByText(/Ближе всего к ответам/)).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Кто собирает 218' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Итоги выборов' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Места по разделам' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Своя коалиция' })).toBeTruthy()
+    const section = screen.getByRole('button', { name: /Цены и налоги/ })
+    fireEvent.click(section)
+    expect(section.getAttribute('aria-pressed')).toBe('true')
+    const democrat = screen.getAllByRole('button').find((node) => node.classList.contains('row') && node.textContent?.includes('Демократы'))
+    expect(democrat).toBeTruthy()
+    fireEvent.click(democrat!)
+    expect(section.getAttribute('aria-pressed')).toBe('false')
+    expect(democrat!.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('heading', { name: 'Как проголосовала бы Палата' })).toBeTruthy()
+    expect(screen.getAllByText(/Вопрос за вопросом/).length).toBe(themes.length)
+    expect(screen.getAllByText('Вы скорее воздержались бы.').length).toBe(6)
+    const decisive = screen.getAllByRole('radio', { name: 'Решающе' })[0]
+    fireEvent.click(decisive)
+    expect(decisive.getAttribute('aria-checked')).toBe('true')
     expect(screen.getByText(/Совпадение \d/)).toBeTruthy()
     expect(screen.queryByText(/% \./)).toBeNull()
   })
@@ -60,16 +89,11 @@ describe('симулятор', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Сразу к вопросам' }))
     fireEvent.click(screen.getByRole('radio', { name: '3 Середина' }))
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    })
-    expect(screen.getByText('Вопрос 2 из 18')).toBeTruthy()
-    fireEvent.click(screen.getByRole('radio', { name: '3 Середина' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Дальше' }))
+    expect(screen.getByText('Вопрос 2 из 6')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Назад' }))
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    })
-    expect(screen.getByText('Вопрос 1 из 18')).toBeTruthy()
+    expect(screen.getByText('Вопрос 1 из 6')).toBeTruthy()
+    expect(screen.getByRole('radio', { name: '3 Середина' }).getAttribute('aria-checked')).toBe('true')
   })
 
   it('Escape в окне метода не пропускает вопрос', async () => {
@@ -81,7 +105,7 @@ describe('симулятор', () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
       await new Promise((resolve) => setTimeout(resolve, 40))
     })
-    expect(screen.getByText('Вопрос 1 из 18')).toBeTruthy()
+    expect(screen.getByText('Вопрос 1 из 6')).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'Ваша Палата' })).toBeNull()
   })
 
@@ -93,8 +117,8 @@ describe('симулятор', () => {
       weights: { money: 9, care: 0 },
     }))
     render(<App />)
-    expect(screen.getByText('Вопрос 18 из 18')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Союзы' })).toBeTruthy()
+    expect(screen.getByText('Вопрос 6 из 6')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Бюджет Пентагона' })).toBeTruthy()
     expect(document.body.textContent).not.toContain('NaN')
   })
 
@@ -103,13 +127,7 @@ describe('симулятор', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Сразу к вопросам' }))
-    for (let step = 0; step < 18; step += 1) {
-      const choice = await screen.findByRole('radio', { name: /Середина/ })
-      await act(async () => {
-        fireEvent.click(choice)
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      })
-    }
+    await finishQuiz()
     fireEvent.click(await screen.findByRole('button', { name: 'Скопировать расклад' }))
     expect(await screen.findByRole('button', { name: 'Скопировано' })).toBeTruthy()
     await act(async () => {
