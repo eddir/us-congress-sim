@@ -1370,6 +1370,13 @@ table.cmptbl th.num {
   border-color: var(--accent);
 }
 
+@media (max-width: 480px) {
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 820px) {
   .parl,
   .bcols,
