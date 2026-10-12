@@ -1,17 +1,19 @@
 import { groupsFrom, HEMICYCLE, SEAT_RADIUS, seatPoints, type SeatGroup } from '@/hemicycle'
 import { partyName, useI18n } from '@/i18n'
 
-type Seat = { id: string; color: string; name: string }
+type Seat = { id: string; color: string; name: string; mark: string }
 
 export function Hemicycle({
   groups,
   activeId,
+  focusMark,
   onPick,
   label,
   sub,
 }: {
   groups: SeatGroup[]
   activeId?: string | null
+  focusMark?: string | null
   onPick?: (id: string) => void
   label: string
   sub: string
@@ -19,7 +21,7 @@ export function Hemicycle({
   const assigned: Seat[] = []
   for (const group of groups) {
     for (let index = 0; index < group.seats && assigned.length < seatPoints.length; index += 1) {
-      assigned.push({ id: group.id, color: group.color, name: group.name })
+      assigned.push({ id: group.id, color: group.color, name: group.name, mark: group.mark ?? '' })
     }
   }
 
@@ -28,7 +30,7 @@ export function Hemicycle({
     <svg viewBox={`0 0 ${HEMICYCLE.width} ${HEMICYCLE.height}`} role="img" aria-label={`${label}, ${sub}`}>
       {seatPoints.map((point, index) => {
         const seat = assigned[index] ?? { id: '', color: 'var(--muted)', name: '' }
-        const dim = Boolean(activeId) && seat.id !== activeId
+        const dim = (Boolean(activeId) && seat.id !== activeId) || (Boolean(focusMark) && seat.mark !== focusMark)
         return (
           <circle
             key={`${point.ring}-${index}`}

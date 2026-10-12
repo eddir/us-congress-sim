@@ -383,6 +383,9 @@ h3 {
   font-weight: 600;
   color: var(--ink2);
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .seg button[aria-checked='true'] {
@@ -950,7 +953,33 @@ h3 {
   align-items: center;
   padding: 8px;
   border-radius: 10px;
+  border: 1px solid transparent;
   min-width: 0;
+}
+
+.tr:has([aria-pressed='true']) {
+  background: var(--sunk);
+  border-color: var(--line2);
+}
+
+.tr.na {
+  opacity: 0.55;
+}
+
+.tr .hit {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.tr .seg button {
+  font-size: 11px;
+  padding: 5px 1px;
 }
 
 .tr .nm {
@@ -1311,6 +1340,34 @@ table.cmptbl th.num {
   font-size: 12px;
   color: var(--ink3);
   max-width: 80ch;
+}
+
+.fine a,
+.credit a {
+  color: var(--accent);
+}
+
+.credit {
+  margin-top: 14px;
+}
+
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line2);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font: 600 12.5px var(--body);
+  cursor: pointer;
+}
+
+.pick[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
 }
 
 @media (max-width: 820px) {

@@ -387,6 +387,12 @@ type Ui = {
   back: string
   skip: string
   keysHint: string
+  originalBefore: string
+  originalName: string
+  originalAfter: string
+  originalHref: string
+  compassBeforeTitle: string
+  compassBeforeLead: string
   next: string
   noOpinion: string
   valEmpty: string
@@ -424,6 +430,19 @@ type Ui = {
   wikiRest: string
   themesTitle: string
   themesLead: string
+  ownTitle: string
+  ownLead: string
+  ownEmpty: string
+  ownVeto: (left: string, right: string) => string
+  ownHave: (total: number) => string
+  ownShort: (total: number, gap: number) => string
+  ownSpeaker: (name: string) => string
+  ownFight: string
+  billYouYes: string
+  billYouNo: string
+  billYouAbs: string
+  billYouSkip: string
+  vetoLine: (n: number) => string
   unanswered: string
   billsTitle: string
   billsLead: string
@@ -526,7 +545,13 @@ export const ui: Record<Locale, Ui> = {
     choices: ['Первый', 'Скорее первый', 'Середина', 'Скорее второй', 'Второй'],
     back: 'Назад',
     skip: 'Пропустить',
-    keysHint: 'С клавиатуры: стрелки двигают ползунок, 1-5 ставят деления, Enter дальше, 0 без мнения.',
+    keysHint: 'С клавиатуры: стрелки двигают ползунок, Home и End ставят края, 1-5 ставят деления, Enter дальше, 0 без мнения.',
+    originalBefore: 'Вопросы, промежуточный зал и отчёт сделаны по образцу',
+    originalName: 'Duma Simulator',
+    originalAfter: '. Считается Палата представителей Соединённых Штатов, не Государственная дума.',
+    originalHref: 'https://bolshoiprikol2.github.io/Duma-Simulator/ru/',
+    compassBeforeTitle: 'Где стоят крылья',
+    compassBeforeLead: 'Так крылья расположены до ваших ответов. В конце теста на этой же карте появится ваша точка.',
     next: 'Дальше',
     noOpinion: 'Без мнения',
     valEmpty: 'Сдвиньте ползунок к варианту, который вам ближе',
@@ -563,7 +588,20 @@ export const ui: Record<Locale, Ui> = {
     wikiShare: 'Доля мест',
     wikiRest: 'Остальные',
     themesTitle: 'Места по разделам',
-    themesLead: 'Каждый раздел раздаёт свою долю округов. Поздние ответы не переписывают уже розданные.',
+    themesLead: 'Нажмите раздел, чтобы подсветить его округа в зале наверху. Поменяйте важность, и палата пересчитается. Последний живой раздел выключить нельзя.',
+    ownTitle: 'Своя коалиция',
+    ownLead: 'Отметьте крылья, которые войдут в одно голосование за спикера.',
+    ownEmpty: 'Отметьте крылья, которые голосуют вместе.',
+    ownVeto: (left, right) => `«${left}» и «${right}» не собирают одно большинство.`,
+    ownHave: (total) => `${total} из 435: 218 есть.`,
+    ownShort: (total, gap) => `${total} из 435: до 218 не хватает ${gap}.`,
+    ownSpeaker: (name) => `Спикер в этом составе: ${name}.`,
+    ownFight: 'Запас меньше крыльев, которые могут провалить кандидата: спикер может не пройти с первой попытки.',
+    billYouYes: 'Вы проголосовали бы за.',
+    billYouNo: 'Вы проголосовали бы против.',
+    billYouAbs: 'Вы скорее воздержались бы.',
+    billYouSkip: 'По этому вопросу у вас нет ответа.',
+    vetoLine: (n) => `Хватает и на ${n}, чтобы преодолеть вето.`,
     unanswered: 'без ответов',
     billsTitle: 'Как проголосовала бы Палата',
     billsLead: 'Шесть счетов по вашим же вопросам. Крыло голосует, если его позиция заметно по одну сторону. Счёт проходит, только если «за» набирает 218: это большинство всего состава, не только явившихся.',
@@ -676,7 +714,13 @@ export const ui: Record<Locale, Ui> = {
     choices: ['First', 'Leaning first', 'Middle', 'Leaning second', 'Second'],
     back: 'Back',
     skip: 'Skip',
-    keysHint: 'Keyboard: arrows move the slider, 1-5 set a stop, Enter continues, 0 is no opinion.',
+    keysHint: 'Keyboard: arrows move the slider, Home and End set the ends, 1-5 set a stop, Enter continues, 0 is no opinion.',
+    originalBefore: 'The questions, the scoreboard, and the report follow',
+    originalName: 'Duma Simulator',
+    originalAfter: '. The count is the United States House of Representatives.',
+    originalHref: 'https://bolshoiprikol2.github.io/Duma-Simulator/',
+    compassBeforeTitle: 'Where the wings stand',
+    compassBeforeLead: 'This is the map before your answers. At the end of the test your own point appears on the same chart.',
     next: 'Next',
     noOpinion: 'No opinion',
     valEmpty: 'Move the slider toward the option you prefer',
@@ -713,7 +757,20 @@ export const ui: Record<Locale, Ui> = {
     wikiShare: 'Share of seats',
     wikiRest: 'The rest',
     themesTitle: 'Seats by section',
-    themesLead: 'Each section awards its own districts. Later answers do not rewrite seats already given out.',
+    themesLead: 'Click a section to highlight its districts in the chamber above. Change its importance and the House is counted again. The last live section cannot be switched off.',
+    ownTitle: 'Your own coalition',
+    ownLead: 'Mark the wings that would vote together for one speaker.',
+    ownEmpty: 'Mark the wings that vote together.',
+    ownVeto: (left, right) => `${left} and ${right} do not build one majority.`,
+    ownHave: (total) => `${total} of 435: 218 is there.`,
+    ownShort: (total, gap) => `${total} of 435: short of 218 by ${gap}.`,
+    ownSpeaker: (name) => `Speaker in this lineup: ${name}.`,
+    ownFight: 'The cushion is smaller than wings that can vote a nominee down, so the speaker may not win on the first ballot.',
+    billYouYes: 'You would have voted aye.',
+    billYouNo: 'You would have voted no.',
+    billYouAbs: 'You would most likely have voted present.',
+    billYouSkip: 'You left this question unanswered.',
+    vetoLine: (n) => `Also enough for ${n}, the votes to override a veto.`,
     unanswered: 'no answers',
     billsTitle: 'How the House would vote',
     billsLead: 'Six bills drawn from the same questions. A wing votes when its position is clearly on one side. A bill passes only if the ayes reach 218: a majority of the whole House, not of those who voted.',

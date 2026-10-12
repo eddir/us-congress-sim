@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,10 +24,11 @@ import {
   themes,
   THIRD_PARTY_FLOOR,
   VETO,
+  vetoPairs,
   weightLevels,
   type Question,
 } from '@/data'
-import { addSeats, defaultWeights, formatPct, seatPlan, simulate, tallyBill, type Answers, type SeatResult, type Weights } from '@/model'
+import { addSeats, defaultWeights, formatPct, isFloorFight, seatPlan, simulate, speakerOf, tallyBill, vetoed, type Answers, type SeatResult, type Weights } from '@/model'
 import {
   billText,
   I18nContext,
@@ -271,8 +272,16 @@ export default function App() {
         pickValue(choice.value)
         return
       }
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Home' || event.key === 'End') {
         event.preventDefault()
+        if (event.key === 'Home') {
+          pickValue(-1)
+          return
+        }
+        if (event.key === 'End') {
+          pickValue(1)
+          return
+        }
         const question = orderQuestions(weights)[index]
         const current = question && typeof answers[question.id] === 'number' ? answers[question.id] : 0
         const step = event.shiftKey ? 0.25 : 0.1
@@ -335,6 +344,7 @@ export default function App() {
               ready={ready}
               count={ordered.length}
               sections={sections.length}
+              points={result.compassParties}
               onChange={(themeId, level) => setWeights((current) => ({ ...current, [themeId]: level }))}
               onNext={() => { setIndex(0); go('questions') }}
             />
@@ -380,9 +390,17 @@ export default function App() {
               result={result}
               ordered={ordered}
               answers={answers}
+              weights={weights}
               answered={answered}
               activeId={activeId}
               onActive={setActiveId}
+              onWeight={(themeId, level) => {
+                setWeights((current) => {
+                  const next = { ...current, [themeId]: level }
+                  const live = themes.some((theme) => (weightLevels.find((item) => item.id === next[theme.id])?.w ?? 0) > 0)
+                  return live ? next : current
+                })
+              }}
               copied={copied}
               onCopy={async () => {
                 const lines = parties.filter((party) => result.seats[party.id]).map((party) => `${partyName(locale, party.id)} ${result.seats[party.id]}`)
@@ -422,6 +440,50 @@ function MethodDialog() {
   )
 }
 
+function OriginalCredit() {
+  const { t } = useI18n()
+  return (
+    <p className="fine credit">
+      {t.originalBefore}{' '}
+      <a href={t.originalHref} target="_blank" rel="noreferrer">{t.originalName}</a>
+      {t.originalAfter}
+    </p>
+  )
+}
+
+function WeightSeg({ label, level, onChange }: { label: string; level: number; onChange: (level: number) => void }) {
+  const { t } = useI18n()
+  function onKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+    event.preventDefault()
+    const ids = weightLevels.map((item) => item.id)
+    const at = Math.max(0, ids.indexOf(level as (typeof ids)[number]))
+    const next = ids[Math.max(0, Math.min(ids.length - 1, at + (event.key === 'ArrowRight' ? 1 : -1)))]
+    onChange(next)
+    event.currentTarget.querySelector<HTMLButtonElement>(`button[data-l="${next}"]`)?.focus()
+  }
+  return (
+    <div className="seg" role="radiogroup" aria-label={label} onKeyDown={onKey}>
+      {weightLevels.map((option) => {
+        const on = level === option.id
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            data-l={option.id}
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(option.id)}
+          >
+            {t.weights[option.id]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function Intro({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
   const { t, locale } = useI18n()
   const poll = Object.fromEntries(parties.map((party) => [party.id, party.poll]))
@@ -451,6 +513,7 @@ function Intro({ onStart, onSkip }: { onStart: () => void; onSkip: () => void })
           <button type="button" className="link" onClick={onSkip}>{t.skipToQuestions}</button>
         </div>
         <p className="hint" style={{ marginTop: 14 }}>{t.pollNow(dem, gop)}</p>
+        <OriginalCredit />
       </div>
       <figure className="box" style={{ margin: 0 }}>
         <Hemicycle groups={groups} label={String(SEAT_COUNT)} sub={t.hemicycleSub} />
@@ -466,6 +529,7 @@ function Weights({
   ready,
   count,
   sections,
+  points,
   onChange,
   onNext,
 }: {
@@ -474,6 +538,7 @@ function Weights({
   ready: boolean
   count: number
   sections: number
+  points: { id: string; x: number; y: number }[]
   onChange: (themeId: string, level: number) => void
   onNext: () => void
 }) {
@@ -498,23 +563,7 @@ function Weights({
                 <span>{plan[item.id] ?? 0}</span>
                 <small>{t.seatsShort}</small>
               </span>
-              <div className="seg" role="radiogroup" aria-label={copy.name}>
-                {weightLevels.map((option) => {
-                  const on = level === option.id
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      data-l={option.id}
-                      aria-checked={on}
-                      onClick={() => onChange(item.id, option.id)}
-                    >
-                      {t.weights[option.id]}
-                    </button>
-                  )
-                })}
-              </div>
+              <WeightSeg label={copy.name} level={level} onChange={(next) => onChange(item.id, next)} />
             </div>
           )
         })}
@@ -522,6 +571,13 @@ function Weights({
       <div className="go">
         <button type="button" className="cta" disabled={!ready} onClick={onNext}>{t.toQuestions}</button>
         <span>{ready ? t.quizSize(count, sections) : t.needTheme}</span>
+      </div>
+      <div className="box" style={{ marginTop: 22 }}>
+        <h3>{t.compassBeforeTitle}</h3>
+        <p className="hint">{t.compassBeforeLead}</p>
+        <div className="cmp">
+          <Compass user={null} parties={points} />
+        </div>
       </div>
     </section>
   )
@@ -742,13 +798,49 @@ function Board({
   )
 }
 
+function sectionGroups(result: SeatResult, locale: Locale) {
+  return parties
+    .filter((party) => (result.seats[party.id] ?? 0) > 0)
+    .slice()
+    .sort((a, b) => a.lr - b.lr)
+    .flatMap((party) => result.blocks
+      .filter((block) => themes.some((theme) => theme.id === block.themeId) && (block.seats[party.id] ?? 0) > 0)
+      .map((block) => ({
+        id: party.id,
+        mark: block.themeId,
+        name: partyName(locale, party.id),
+        color: party.color,
+        seats: block.seats[party.id],
+      })))
+}
+
+function vetoHit(ids: string[]): [string, string] | null {
+  for (let left = 0; left < ids.length; left += 1) {
+    for (let right = left + 1; right < ids.length; right += 1) {
+      const pair = vetoPairs.find(([a, b]) => (a === ids[left] && b === ids[right]) || (b === ids[left] && a === ids[right]))
+      if (pair) return pair
+    }
+  }
+  return null
+}
+
+function yourVote(value: number | null | undefined, yes: 1 | -1) {
+  if (typeof value !== 'number') return 'skip' as const
+  const lean = value * yes
+  if (lean >= 0.15) return 'yes' as const
+  if (lean <= -0.15) return 'no' as const
+  return 'abs' as const
+}
+
 function Results({
   result,
   ordered,
   answers,
+  weights,
   answered,
   activeId,
   onActive,
+  onWeight,
   copied,
   onCopy,
   onEdit,
@@ -757,23 +849,29 @@ function Results({
   result: SeatResult
   ordered: Question[]
   answers: Answers
+  weights: Weights
   answered: number
   activeId: string | null
   onActive: (id: string | null) => void
+  onWeight: (themeId: string, level: number) => void
   copied: boolean
   onCopy: () => void
   onEdit: () => void
   onReset: () => void
 }) {
   const { t, locale } = useI18n()
+  const [themeFocus, setThemeFocus] = useState<string | null>(null)
   const closestId = result.closestId
-  const groups = groupsFrom(result.seats).map((group) => ({ ...group, name: partyName(locale, group.id) }))
   const below = parties.filter((party) => result.seats[party.id] === 0)
   const demSeats = campSeats(result.seats, demIds)
   const wasted = result.seats.ind === 0 && result.raw.ind >= 0.02 && result.raw.ind < THIRD_PARTY_FLOOR
   const shownId = activeId && parties.some((party) => party.id === activeId) ? activeId : closestId
   const ranked = parties.filter((party) => result.seats[party.id] > 0).slice().sort((a, b) => result.seats[b.id] - result.seats[a.id])
   const maxSeats = ranked[0] ? result.seats[ranked[0].id] : 1
+  const focusBlock = result.blocks.find((block) => block.themeId === themeFocus && block.total > 0)
+  const focusTheme = focusBlock ? themes.find((theme) => theme.id === focusBlock.themeId) : undefined
+  const chartLabel = focusBlock ? String(focusBlock.total) : String(SEAT_COUNT)
+  const chartSub = focusTheme ? themeText(locale, focusTheme.id).name : t.hemicycleSub
 
   return (
     <div className="res stack">
@@ -799,11 +897,15 @@ function Results({
 
       <div className="box main">
         <Hemicycle
-          groups={groups}
+          groups={sectionGroups(result, locale)}
           activeId={activeId}
-          onPick={(id) => onActive(activeId === id ? null : id)}
-          label={String(SEAT_COUNT)}
-          sub={t.hemicycleSub}
+          focusMark={focusBlock?.themeId}
+          onPick={(id) => {
+            setThemeFocus(null)
+            onActive(activeId === id ? null : id)
+          }}
+          label={chartLabel}
+          sub={chartSub}
         />
         <div>
           <div className="leg">
@@ -826,11 +928,23 @@ function Results({
             <p className="hint">{t.noSeatsLine(below.map((party) => `${partyName(locale, party.id)} (${formatPct(result.raw[party.id], locale)}%)`).join(', '))}</p>
           )}
           <p className="desc">
-            <b>{partyName(locale, shownId)}</b>
-            {' · '}
-            {result.seats[shownId]}
-            {' · '}
-            {partyLeader(locale, shownId)}
+            {focusBlock && focusTheme ? (
+              <>
+                <b>{themeText(locale, focusTheme.id).name}</b>
+                {' · '}
+                {focusBlock.total}
+                {': '}
+                {parties.filter((party) => focusBlock.seats[party.id]).map((party) => `${partyName(locale, party.id)} ${focusBlock.seats[party.id]}`).join(', ')}
+              </>
+            ) : (
+              <>
+                <b>{partyName(locale, shownId)}</b>
+                {' · '}
+                {result.seats[shownId]}
+                {' · '}
+                {partyLeader(locale, shownId)}
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -857,6 +971,7 @@ function Results({
                 </div>
                 <p className="note">{scenario.note}</p>
                 {scenario.pm && <p className="note">{t.speakerCandidate(partyLeader(locale, scenario.pm))}</p>}
+                {scenario.total >= VETO && <p className="note">{t.vetoLine(VETO)}</p>}
                 <div className="chips" style={{ marginTop: 8 }}>
                   {scenario.ids.map((id) => (
                     <span key={id} className="pill">{partyName(locale, id)} {result.seats[id]}</span>
@@ -889,6 +1004,8 @@ function Results({
         </section>
       )}
 
+      <OwnCoalition seats={result.seats} />
+
       {result.cabinet && (
         <section className="box">
           <h3>{t.postsTitle}</h3>
@@ -917,24 +1034,36 @@ function Results({
         <h3>{t.themesTitle}</h3>
         <p className="hint">{t.themesLead}</p>
         <div className="ths">
-          {result.blocks.filter((block) => themes.some((theme) => theme.id === block.themeId)).map((block) => {
-            const theme = themes.find((item) => item.id === block.themeId)
-            if (!theme) return null
+          {themes.map((theme) => {
+            const block = result.blocks.find((item) => item.themeId === theme.id)
+            const total = block?.total ?? 0
             const named = themeText(locale, theme.id)
             const quiet = !questions.some((question) => question.theme === theme.id && answers[question.id] != null)
+            const pressed = focusBlock?.themeId === theme.id
+            const level = weights[theme.id] ?? 0
             return (
-              <div key={block.themeId} className="tr">
-                <span className="nm">
+              <div key={theme.id} className={`tr${total ? '' : ' na'}`}>
+                <button
+                  type="button"
+                  className="hit nm"
+                  aria-pressed={pressed}
+                  disabled={total === 0}
+                  onClick={() => {
+                    onActive(null)
+                    setThemeFocus(pressed ? null : theme.id)
+                  }}
+                >
                   <i className="dot" style={{ background: theme.color }} />
                   {named.name}
                   {quiet && <small> · {t.unanswered}</small>}
-                </span>
-                <span className="n">{block.total}</span>
+                </button>
+                <span className="n">{total}</span>
                 <span className="tb">
-                  {parties.filter((party) => block.seats[party.id]).map((party) => (
-                    <i key={party.id} style={{ width: `${(block.seats[party.id] / Math.max(1, block.total)) * 100}%`, background: party.color }} title={`${partyName(locale, party.id)}: ${block.seats[party.id]}`} />
+                  {block && parties.filter((party) => block.seats[party.id]).map((party) => (
+                    <i key={party.id} style={{ width: `${(block.seats[party.id] / Math.max(1, total)) * 100}%`, background: party.color }} title={`${partyName(locale, party.id)}: ${block.seats[party.id]}`} />
                   ))}
                 </span>
+                <WeightSeg label={named.name} level={level} onChange={(next) => onWeight(theme.id, next)} />
               </div>
             )
           })}
@@ -947,6 +1076,8 @@ function Results({
         {bills.map((bill) => {
           const copy = billText(locale, bill.id)
           const tally = tallyBill(bill.questionId, bill.yes, result.seats)
+          const mine = yourVote(answers[bill.questionId], bill.yes)
+          const mineText = mine === 'yes' ? t.billYouYes : mine === 'no' ? t.billYouNo : mine === 'abs' ? t.billYouAbs : t.billYouSkip
           const width = SEAT_COUNT || 1
           return (
             <article key={bill.id} className="bill">
@@ -955,6 +1086,7 @@ function Results({
                 <span className={`pill ${tally.pass ? 'ok' : 'bad'}`}>{tally.pass ? t.billPass : t.billFail}</span>
               </div>
               <p className="hint">{copy.summary}</p>
+              <p className="hint">{mineText}</p>
               <div className="vbar">
                 <span className="y" style={{ width: `${(tally.yes / width) * 100}%` }} />
                 <span className="a" style={{ width: `${(tally.abs / width) * 100}%` }} />
@@ -1038,7 +1170,52 @@ function Results({
         {t.methodParas.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
       </details>
       <p className="fine">{t.disclaimer}</p>
+      <OriginalCredit />
     </div>
+  )
+}
+
+function OwnCoalition({ seats }: { seats: Record<string, number> }) {
+  const { t, locale } = useI18n()
+  const [picked, setPicked] = useState<string[]>([])
+  const present = parties.filter((party) => (seats[party.id] ?? 0) > 0)
+  const ids = picked.filter((id) => (seats[id] ?? 0) > 0)
+  const total = ids.reduce((sum, id) => sum + (seats[id] ?? 0), 0)
+  const pair = ids.length > 1 ? vetoHit(ids) : null
+  const blocked = pair != null || vetoed(ids)
+  const speaker = ids.length > 0 && !blocked ? speakerOf(ids, seats) : null
+  const fight = speaker != null && isFloorFight(ids, seats)
+  return (
+    <section className="box">
+      <h3>{t.ownTitle}</h3>
+      <p className="hint">{t.ownLead}</p>
+      <div className="chips">
+        {present.map((party) => {
+          const on = ids.includes(party.id)
+          return (
+            <button
+              key={party.id}
+              type="button"
+              className="pick"
+              aria-pressed={on}
+              onClick={() => setPicked((current) => on ? current.filter((id) => id !== party.id) : [...current, party.id])}
+            >
+              <i className="dot" style={{ background: on ? 'currentColor' : party.color }} />
+              {partyName(locale, party.id)} · {seats[party.id]}
+            </button>
+          )
+        })}
+      </div>
+      <p className="note">
+        {ids.length === 0 && t.ownEmpty}
+        {pair && t.ownVeto(partyName(locale, pair[0]), partyName(locale, pair[1]))}
+        {!pair && ids.length > 0 && total >= MAJORITY && t.ownHave(total)}
+        {!pair && ids.length > 0 && total < MAJORITY && t.ownShort(total, MAJORITY - total)}
+        {speaker && ` ${t.ownSpeaker(partyLeader(locale, speaker))}`}
+        {fight && ` ${t.ownFight}`}
+        {speaker && total >= VETO && ` ${t.vetoLine(VETO)}`}
+      </p>
+    </section>
   )
 }
 

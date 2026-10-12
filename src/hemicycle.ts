@@ -57,7 +57,7 @@ export const seatPoints: SeatPoint[] = raw
   }))
   .sort((a, b) => b.angle - a.angle || a.ring - b.ring)
 
-export type SeatGroup = { id: string; name: string; color: string; seats: number }
+export type SeatGroup = { id: string; name: string; color: string; seats: number; mark?: string }
 
 export function groupsFrom(seats: Record<string, number>): SeatGroup[] {
   return parties
